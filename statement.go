@@ -270,8 +270,8 @@ func (statement *Statement) buildUpdates(bean interface{},
 
 		fieldValuePtr, err := col.ValueOf(bean)
 		if err != nil {
-			engine.logger.Error(err)
-			continue
+			statement.lastError = err
+			return colNames, args
 		}
 
 		fieldValue := *fieldValuePtr
@@ -307,10 +307,10 @@ func (statement *Statement) buildUpdates(bean interface{},
 			if structConvert, ok := fieldValue.Addr().Interface().(core.Conversion); ok {
 				data, err := structConvert.ToDB()
 				if err != nil {
-					engine.logger.Error(err)
-				} else {
-					val = data
+					statement.lastError = err
+					return colNames, args
 				}
+				val = data
 				goto APPEND
 			}
 		}
@@ -318,10 +318,10 @@ func (statement *Statement) buildUpdates(bean interface{},
 		if structConvert, ok := fieldValue.Interface().(core.Conversion); ok {
 			data, err := structConvert.ToDB()
 			if err != nil {
-				engine.logger.Error(err)
-			} else {
-				val = data
+				statement.lastError = err
+				return colNames, args
 			}
+			val = data
 			goto APPEND
 		}
 
@@ -399,8 +399,8 @@ func (statement *Statement) buildUpdates(bean interface{},
 								continue
 							}
 						} else {
-							//TODO: how to handler?
-							panic("not supported")
+							statement.lastError = errors.New("Not supported")
+							return colNames, args
 						}
 					} else {
 						val = fieldValue.Interface()
@@ -410,7 +410,8 @@ func (statement *Statement) buildUpdates(bean interface{},
 					if requiredField || !isStructZero(fieldValue) {
 						bytes, err := json.Marshal(fieldValue.Interface())
 						if err != nil {
-							panic(fmt.Sprintf("mashal %v failed", fieldValue.Interface()))
+							statement.lastError = err
+							return colNames, args
 						}
 						if col.SQLType.IsText() {
 							val = string(bytes)
@@ -439,8 +440,8 @@ func (statement *Statement) buildUpdates(bean interface{},
 			if col.SQLType.IsText() {
 				bytes, err := json.Marshal(fieldValue.Interface())
 				if err != nil {
-					engine.logger.Error(err)
-					continue
+					statement.lastError = err
+					return colNames, args
 				}
 				val = string(bytes)
 			} else if col.SQLType.IsBlob() {
@@ -459,8 +460,8 @@ func (statement *Statement) buildUpdates(bean interface{},
 				} else {
 					bytes, err = json.Marshal(fieldValue.Interface())
 					if err != nil {
-						engine.logger.Error(err)
-						continue
+						statement.lastError = err
+						return colNames, args
 					}
 					val = bytes
 				}
@@ -473,9 +474,6 @@ func (statement *Statement) buildUpdates(bean interface{},
 
 	APPEND:
 		args = append(args, val)
-		if col.IsPrimaryKey && engine.dialect.DBType() == "ql" {
-			continue
-		}
 		colNames = append(colNames, fmt.Sprintf("%v = ?", engine.Quote(col.Name)))
 	}
 
@@ -780,7 +778,7 @@ func (statement *Statement) Join(joinOP string, tablename interface{}, condition
 		statement.joinArgs = append(statement.joinArgs, subQueryArgs...)
 	default:
 		tbName := statement.Engine.TableName(tablename, true)
-		fmt.Fprintf(&buf, "%s ON %v", tbName, condition)
+		fmt.Fprintf(&buf, "%s ON %v", statement.Engine.Quote(tbName), condition)
 	}
 
 	statement.JoinStr = buf.String()
