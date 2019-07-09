@@ -426,7 +426,7 @@ func (session *Session) slice2Bean(scanResults []interface{}, fields []string, b
 		fieldValue, err := session.getField(dataStruct, key, table, idx)
 		if err != nil {
 			if !strings.Contains(err.Error(), "is not valid") {
-				session.logger.Warn(err)
+				session.engine.logger.Warn(err)
 			}
 			continue
 		}
@@ -611,7 +611,7 @@ func (session *Session) slice2Bean(scanResults []interface{}, fields []string, b
 					z, _ := t.Zone()
 					// set new location if database don't save timezone or give an incorrect timezone
 					if len(z) == 0 || t.Year() == 0 || t.Location().String() != dbTZ.String() { // !nashtsai! HACK tmp work around for lib/pq doesn't properly time with location
-						session.logger.Debugf("empty zone key[%v] : %v | zone: %v | location: %+v\n", key, t, z, *t.Location())
+						session.engine.logger.Debugf("empty zone key[%v] : %v | zone: %v | location: %+v\n", key, t, z, *t.Location())
 						t = time.Date(t.Year(), t.Month(), t.Day(), t.Hour(),
 							t.Minute(), t.Second(), t.Nanosecond(), dbTZ)
 					}
@@ -629,7 +629,7 @@ func (session *Session) slice2Bean(scanResults []interface{}, fields []string, b
 						hasAssigned = true
 						t, err := session.byte2Time(col, d)
 						if err != nil {
-							session.logger.Error("byte2Time error:", err.Error())
+							session.engine.logger.Error("byte2Time error:", err.Error())
 							hasAssigned = false
 						} else {
 							fieldValue.Set(reflect.ValueOf(t).Convert(fieldType))
@@ -638,7 +638,7 @@ func (session *Session) slice2Bean(scanResults []interface{}, fields []string, b
 						hasAssigned = true
 						t, err := session.str2Time(col, d)
 						if err != nil {
-							session.logger.Error("byte2Time error:", err.Error())
+							session.engine.logger.Error("byte2Time error:", err.Error())
 							hasAssigned = false
 						} else {
 							fieldValue.Set(reflect.ValueOf(t).Convert(fieldType))
@@ -651,7 +651,7 @@ func (session *Session) slice2Bean(scanResults []interface{}, fields []string, b
 				// !<winxxp>! 增加支持sql.Scanner接口的结构，如sql.NullString
 				hasAssigned = true
 				if err := nulVal.Scan(vv.Interface()); err != nil {
-					session.logger.Error("sql.Sanner error:", err.Error())
+					session.engine.logger.Error("sql.Sanner error:", err.Error())
 					hasAssigned = false
 				}
 			} else if col.SQLType.IsJson() {

@@ -572,7 +572,7 @@ func (session *Session) cacheInsert(table string) error {
 	if cacher == nil {
 		return nil
 	}
-	session.logger.Debug("[cache] clear sql:", table)
+	session.engine.logger.Debug("[cache] clear sql:", table)
 	cacher.ClearIds(table)
 	return nil
 }
